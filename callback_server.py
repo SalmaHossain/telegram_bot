@@ -7,7 +7,7 @@ from oauth import save_user_credentials
 import bcrypt
 from db import check_email_exists, check_password , create_user
 from session_store import user_sessions
-from telegram import Bot, Update, InlineKeyboardButton, InlineKeyboardMarkup
+from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 import asyncio  # Import asyncio at the top of your file
 
 
@@ -15,7 +15,7 @@ load_dotenv()
 app = Flask(__name__)
 
 BOT_TOKEN = os.getenv("BOT_TOKEN")
-bot = Bot(token=BOT_TOKEN)
+bot = BOT_TOKEN
 
 user_tokens = {}
 

@@ -19,6 +19,9 @@ bot = BOT_TOKEN
 
 user_tokens = {}
 
+@app.route("/")
+def home():
+    return "Welcome to my Telegram bot's backend! 🚀 Everything is running smoothly."
 
 
 # Simple login HTML template

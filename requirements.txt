@@ -6,4 +6,3 @@ mysql-connector-python
 bcrypt
 telegram
 
-

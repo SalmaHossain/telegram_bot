@@ -1,13 +1,13 @@
-#callback_server.py
 from dotenv import load_dotenv
 from flask import Flask, request, render_template_string
 from google_auth_oauthlib.flow import Flow
 import os
 from oauth import save_user_credentials
-import bcrypt
+from werkzeug.security import generate_password_hash, check_password_hash
+from telegram import Bot
 from db import check_email_exists, check_password , create_user
 from session_store import user_sessions
-
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 import asyncio  # Import asyncio at the top of your file
 
 
@@ -15,13 +15,10 @@ load_dotenv()
 app = Flask(__name__)
 
 BOT_TOKEN = os.getenv("BOT_TOKEN")
-bot = BOT_TOKEN
+bot = Bot(token=BOT_TOKEN)
 
 user_tokens = {}
 
-@app.route("/")
-def home():
-    return "Welcome to my Telegram bot's backend! 🚀 Everything is running smoothly."
 
 
 # Simple login HTML template
@@ -51,18 +48,21 @@ LOGIN_TEMPLATE = """
 </html>
 """
 # Temporary session store (in-memory)
-user_sessions = {}  # This should be global or imported from a session module
+#user_sessions = {}  # This should be global or imported from a session module
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
-    user_id = request.args.get('user_id') 
+    user_id = request.args.get('user_id') or request.form.get('user_id')
     if request.method == 'POST':
         email = request.form['email']
         password = request.form['password']
 
-        if check_email_exists(email) and check_password(email, password):
-            # ✅ Save login session
-            user_sessions[user_id] = email
+        if check_email_exists(email) :
+            stored_hashed = check_password(email)  # returns hashed password
+            if stored_hashed and check_password_hash(stored_hashed, password):
+           
+                # ✅ Save login session
+                 user_sessions[user_id] = email
 
             # Use asyncio to call the bot.send_message asynchronously
             asyncio.run(bot.send_message(
@@ -72,6 +72,7 @@ def login():
                     [InlineKeyboardButton("📤 Upload File", callback_data='upload')],
                     [InlineKeyboardButton("🔗 Connect Google Drive", callback_data='connect_gdrive')],
                     [InlineKeyboardButton("📂 List Google Drive Files", callback_data='list_gdrive')],
+                    [InlineKeyboardButton("🔍 Search Drive Files", callback_data='search_gdrive')],
                 ])
             ))
 
@@ -119,7 +120,9 @@ def signup():
         if check_email_exists(email):
             return render_template_string(SIGNUP_TEMPLATE, user_id=user_id, error="Email already registered.")
         else:
-            if create_user(email, password):
+            hashed_password = generate_password_hash(password)
+            if create_user(email, hashed_password):
+
                 # Save session
                 user_sessions[user_id] = email
                 
@@ -175,4 +178,4 @@ def google_callback():
 if __name__ == "__main__":
     if not os.path.exists("tokens"):
         os.makedirs("tokens")
-    app.run(host="0.0.0.0", port=8080)
+    app.run(port=8080)

@@ -1,4 +1,3 @@
-#db.py
 import mysql.connector
 import os
 
@@ -17,22 +16,26 @@ def check_email_exists(email):
     conn.close()
     return result is not None
 
-def check_password(email, password):
+def check_password(email):
+    # Only return hashed password from DB
     conn = get_connection()
     cursor = conn.cursor()
-    cursor.execute("SELECT * FROM users WHERE email = %s AND password = %s", (email, password))
+    cursor.execute("SELECT password FROM users WHERE email = %s", (email,))
     result = cursor.fetchone()
+    cursor.close()
     conn.close()
-    return result is not None
+    return result[0] if result else None
 
-def create_user(email, password):
+
+def create_user(email, hashed_password):
     conn = get_connection()
     cursor = conn.cursor()
     try:
-        cursor.execute("INSERT INTO users (email, password) VALUES (%s, %s)", (email, password))
+        cursor.execute("INSERT INTO users (email, password) VALUES (%s, %s)", (email, hashed_password))
         conn.commit()
         return True
-    except mysql.connector.IntegrityError:
+    except:
         return False
     finally:
+        cursor.close()
         conn.close()

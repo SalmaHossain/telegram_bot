@@ -1,12 +1,14 @@
-#main.py
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import  ApplicationBuilder, CommandHandler, MessageHandler, CallbackQueryHandler, filters, ContextTypes
 from dotenv import load_dotenv
 import os
-from oauth import generate_google_oauth_url, upload_to_google_drive, list_drive_files
+from oauth import generate_google_oauth_url, upload_to_google_drive, list_drive_files, search_drive_files
 import threading
 from callback_server import app as flask_app
 from urllib.parse import quote
+from session_store import user_sessions
+from telegram.ext import CallbackContext
+from oauth import search_drive_for_text
 
 
 load_dotenv()
@@ -30,7 +32,7 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await query.answer()
 
     if query.data == 'login':
-        login_url = f"https://f51f-103-231-161-208.ngrok-free.app/login?user_id={user_id}"
+        login_url = f"https://13df-103-231-161-213.ngrok-free.app/login?user_id={user_id}"
         await query.message.reply_text(
             "🔐 To log in, please open your web browser and visit the following URL:\n"
             f"`{login_url}`\n\n"
@@ -39,7 +41,7 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
     
     elif query.data == 'signup':
-        signup_url = f"https://f51f-103-231-161-208.ngrok-free.app/signup?user_id={user_id}"
+        signup_url = f"https://13df-103-231-161-213.ngrok-free.app/signup?user_id={user_id}"
         await query.message.reply_text(
             "🛠️ To sign up, please open your web browser and visit the following URL:\n"
             f"`{signup_url}`\n\n"
@@ -50,8 +52,7 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     elif query.data == 'upload':
         await query.message.reply_text("📁 Please send the file you want to upload.")
-    elif query.data == 'menu':
-        await show_menu(query.message)
+   
     elif query.data == 'connect_gdrive':
         gdrive_url = generate_google_oauth_url(str(user_id))
         await query.message.reply_text(f"🔐 Click to connect your Google Drive:\n{gdrive_url}")
@@ -66,6 +67,9 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         except Exception as e:
             reply = "❌ Error accessing your Google Drive. Please connect again."
         await query.message.reply_text(reply)
+    
+    elif query.data == 'search_gdrive':
+        await query.message.reply_text("🔍 Please type the query you'd like to search for in your Google Drive files.")
 
 
        
@@ -76,11 +80,34 @@ async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.message.from_user.id
     text = update.message.text.strip()
     state = user_states.get(user_id, {})
+    query = update.message.text.strip()
 
-    
     if text == "🔗 Connect Google Drive":
         auth_url = generate_google_oauth_url(str(user_id))
-        await update.message.reply_text(f"🌐 [Click here to connect Google Drive]({auth_url})", parse_mode='Markdown')
+        await update.message.reply_text(
+            f"🌐 [Click here to connect Google Drive]({auth_url})", parse_mode='Markdown'
+        )
+    
+    if text.startswith("🔗 Connect Google Drive"):
+        auth_url = generate_google_oauth_url(str(user_id))
+        await update.message.reply_text(
+            f"🌐 [Click here to connect Google Drive]({auth_url})", parse_mode='Markdown'
+        )
+    else:  # Process search query
+        try:
+            result = search_drive_files(str(user_id), text)
+            await update.message.reply_text(result)
+        except Exception as e:
+            await update.message.reply_text(f"❌ Error searching files: {e}")
+       
+
+    # Handle search query
+    try:
+        response = search_drive_files(str(user_id), query)
+        update.message.reply_text(result)
+    except Exception as e:
+        update.message.reply_text(f"❌ Error searching files: {e}")
+
 
 # File upload handler
 async def handle_document(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -110,7 +137,7 @@ async def login_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await query.answer()
     
     user_id = query.from_user.id
-    login_url = f"https://f51f-103-231-161-208.ngrok-free.app/login?user_id={quote(str(user_id))}"
+    login_url = f"https://13df-103-231-161-213.ngrok-free.app/login?user_id={quote(str(user_id))}"
     
     await query.message.reply_text(
         f'🔐 <a href="{login_url}">Click here to log in securely</a>',
@@ -120,15 +147,7 @@ async def login_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 
-# Shared menu builder
-async def show_menu(message):
-    keyboard = [
-        [InlineKeyboardButton("📤 Upload File", callback_data='upload')],
-        [InlineKeyboardButton("🔗 Connect Google Drive", callback_data='connect_gdrive')],
-        [InlineKeyboardButton("📂 List Google Drive Files", callback_data='list_gdrive')],
-        
-    ]
-    await message.reply_text("Choose an option:", reply_markup=InlineKeyboardMarkup(keyboard))
+
 
 
 
